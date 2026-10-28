@@ -1,0 +1,77 @@
+name: Backend CI/CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - development
+      - staging
+      - production
+  push:
+    branches:
+      - staging
+      - production
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-verify:
+    name: Run Automated Security & RBAC Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Test Suite
+        run: npm test
+        env:
+          NODE_ENV: test
+          PORT: 5001
+          JWT_SECRET: test_jwt_secret_key_at_least_32_characters_long_for_security_spec
+          COOKIE_SECRET: test_cookie_secret_key_32_characters_long
+
+  deploy-staging:
+    name: Deploy to Staging Backend
+    needs: test-and-verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://api-staging.careeros.ai
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Staging Deployment Notification
+        run: |
+          echo "🚀 Deploying backend container/service to Staging..."
+          echo "Target Database: careeros_staging"
+
+  deploy-production:
+    name: Deploy to Production Backend
+    needs: test-and-verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/production'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://api.careeros.ai
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # SAFETY GUARD: Production deployment remains disabled until authorized
+      - name: Production Deployment Gate
+        run: |
+          echo "🔒 Production backend release reached."
+          echo "Release commit: ${{ github.sha }}"
+          echo "Production deployment is currently in safe-standby mode until explicitly released by the repository owner."
