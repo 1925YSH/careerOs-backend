@@ -54,15 +54,26 @@ function errorHandler(err, req, res, next) {
     );
   }
 
-  // Log error with correlation ID (redacting sensitive inputs)
-  logger.error(error.message, {
-    category: error.category,
-    statusCode: error.statusCode,
-    correlationId,
-    path: req.originalUrl,
-    method: req.method,
-    stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
-  });
+  // Differentiate operational client errors (4xx) from critical server errors (5xx)
+  if (error.statusCode >= 500) {
+    logger.error(error.message, {
+      category: error.category,
+      statusCode: error.statusCode,
+      correlationId,
+      path: req.originalUrl,
+      method: req.method,
+      stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
+    });
+  } else {
+    // 4xx errors (e.g. 401 Unauthenticated, 404 Not Found, 400 Validation) are expected client states
+    logger.warn(`${error.category.toUpperCase()}: ${error.message}`, {
+      category: error.category,
+      statusCode: error.statusCode,
+      correlationId,
+      path: req.originalUrl,
+      method: req.method,
+    });
+  }
 
   const response = {
     success: false,
