@@ -73,3 +73,4 @@ async function validateSafeUrl(inputUrl) {
 module.exports = {
   validateSafeUrl,
 };
+
