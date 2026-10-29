@@ -1,6 +1,7 @@
 const app = require('./app');
 const env = require('./config/env');
 const { connectDB, disconnectDB } = require('./config/db');
+const { initScheduler, stopScheduler } = require('./ingestion/scheduler');
 const logger = require('./utils/logger');
 
 let server;
@@ -13,9 +14,15 @@ async function startServer() {
     logger.info(`🔗 CORS configured for Client URL: ${env.CLIENT_URL}`);
   });
 
+  // Start background job ingestion scheduler if not in test
+  if (env.NODE_ENV !== 'test') {
+    initScheduler();
+  }
+
   // Graceful shutdown handlers
   const shutdown = async (signal) => {
     logger.info(`Received ${signal}. Starting graceful shutdown...`);
+    stopScheduler();
     if (server) {
       server.close(async () => {
         logger.info('HTTP server closed.');
@@ -41,4 +48,3 @@ startServer().catch((err) => {
   logger.error('Failed to start server:', { error: err.message, stack: err.stack });
   process.exit(1);
 });
-

@@ -140,3 +140,4 @@ module.exports = {
   MAX_FILE_SIZE_BYTES,
   ALLOWED_MIME_TYPES,
 };
+
