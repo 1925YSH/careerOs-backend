@@ -5,6 +5,7 @@ const Application = require('../models/Application');
 const Job = require('../models/Job');
 const Resume = require('../models/Resume');
 const AgentTask = require('../models/AgentTask');
+const { evaluateDeterministicFit, evaluateSkillOverlap } = require('../services/match.service');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 
 const router = express.Router();
@@ -59,7 +60,7 @@ router.get('/dashboard', async (req, res, next) => {
         status: { $in: ['applied', 'reviewing', 'interview'] },
       }),
       Application.countDocuments({ candidateId: req.user._id }),
-      AgentTask.countDocuments({ candidateId: req.user._id, status: 'pending' }).catch(() => 0),
+      AgentTask.countDocuments({ userId: req.user._id, status: 'pending' }).catch(() => 0),
       Application.find({ candidateId: req.user._id })
         .populate('jobId', 'title location workMode salary status')
         .populate('companyId', 'name domain logoUrl verified')
@@ -74,21 +75,19 @@ router.get('/dashboard', async (req, res, next) => {
       Resume.findOne({ userId: req.user._id, isDefault: true }).lean(),
     ]);
 
-    // Rank jobs based on candidate skill overlap
-    const candidateSkillNames = profile.skills.map((s) => s.name.toLowerCase());
+    // Rank jobs using transparent hybrid match calculations
     const scoredJobs = activeJobs.map((job) => {
-      const jobSkills = (job.skills || []).map((s) => s.toLowerCase());
-      const matched = jobSkills.filter((s) => candidateSkillNames.includes(s));
-      const matchScore =
-        jobSkills.length > 0
-          ? Math.round((matched.length / jobSkills.length) * 100)
-          : 75; // Default baseline if job has no explicit skills
+      const deterministic = evaluateDeterministicFit(req.user, profile, latestResume, job);
+      const skillFit = evaluateSkillOverlap(profile, latestResume, job);
+      // Fast feed score (50% deterministic + 50% skill overlap)
+      const feedScore = Math.round(0.5 * deterministic.score + 0.5 * skillFit.score);
 
       return {
         ...job,
-        matchScore: Math.max(65, Math.min(98, matchScore || 70)),
-        matchedSkills: matched,
-        missingSkills: jobSkills.filter((s) => !candidateSkillNames.includes(s)),
+        matchScore: Math.max(50, Math.min(99, feedScore)),
+        matchedSkills: skillFit.matchedSkills,
+        missingSkills: skillFit.missingSkills,
+        deterministicAudit: deterministic.audit,
       };
     });
 
@@ -101,7 +100,7 @@ router.get('/dashboard', async (req, res, next) => {
           savedJobs: savedCount,
           activeApplications: activeAppsCount,
           totalApplications: totalAppsCount,
-          tasksDue: tasksCount || 2, // 2 default guidance tasks
+          tasksDue: tasksCount,
         },
         topMatches: scoredJobs.sort((a, b) => b.matchScore - a.matchScore),
         recentApplications,
