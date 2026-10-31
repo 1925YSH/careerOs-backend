@@ -19,6 +19,8 @@ const resumeRoutes = require('./routes/resumes.routes');
 const candidateRoutes = require('./routes/candidate.routes');
 const agentRoutes = require('./routes/agent.routes');
 const adminRoutes = require('./routes/admin.routes');
+const notificationRoutes = require('./routes/notifications.routes');
+const billingRoutes = require('./routes/billing.routes');
 
 const app = express();
 
@@ -92,6 +94,8 @@ app.use('/api/resumes', resumeRoutes);
 app.use('/api/candidate', candidateRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/billing', billingRoutes);
 
 // 8. 404 Route Catch-all
 app.use('*', (req, res, next) => {

@@ -360,6 +360,29 @@ router.post(
         throw new AuthorizationError('You must configure a company profile before posting jobs.');
       }
 
+      // Check active job posting quota based on subscription plan
+      const quota = company.subscription?.jobPostingQuota || 2;
+      const activeJobsCount = await Job.countDocuments({
+        companyId: company._id,
+        status: 'active',
+      });
+
+      if (req.body.status !== 'draft' && activeJobsCount >= quota) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            category: 'authorization',
+            message: `Job posting limit reached for ${company.subscription?.plan || 'free'} tier (${activeJobsCount}/${quota} active jobs). Upgrade to Verified Starter or Talent Growth to publish more roles.`,
+            details: {
+              code: 'UPGRADE_REQUIRED',
+              upgradeUrl: '/pricing',
+              currentActive: activeJobsCount,
+              quota,
+            },
+          },
+        });
+      }
+
       const {
         title,
         description,

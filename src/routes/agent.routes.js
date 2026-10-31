@@ -56,12 +56,72 @@ router.post('/match/:jobId', aiLimiter, async (req, res, next) => {
 router.post('/roadmap', aiLimiter, async (req, res, next) => {
   try {
     const { jobId, targetRole } = req.body;
+
+    // Check candidate subscription quota (Free: 2 roadmaps/week, Pro: Unlimited)
+    const isPro = req.user.subscription?.plan === 'pro';
+    if (!isPro && req.user.role === 'candidate') {
+      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const roadmapsThisWeek = await AgentTask.countDocuments({
+        userId: req.user._id,
+        type: 'interview_prep',
+        createdAt: { $gte: oneWeekAgo },
+      });
+
+      // 7 tasks per roadmap; >= 14 tasks = 2 completed/active roadmaps
+      if (roadmapsThisWeek >= 14) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            category: 'authorization',
+            message: 'Weekly roadmap limit reached for Free plan (2 roadmaps/week). Upgrade to CareerOS Pro for unlimited AI preparation roadmaps.',
+            details: {
+              code: 'UPGRADE_REQUIRED',
+              upgradeUrl: '/pricing',
+            },
+          },
+        });
+      }
+    }
+
     const result = await toolGenerateRoadmap(req.user._id, { jobId, targetRole });
 
     return res.status(201).json({
       success: true,
       message: '7-Day Interview Sprint generated and scheduled into your task pipeline.',
       data: result.roadmap,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/agent/tasks - Manually create a new career task
+ */
+router.post('/tasks', async (req, res, next) => {
+  try {
+    const { title, type, priority, dueAt, description, jobId } = req.body;
+    if (!title || !title.trim()) {
+      throw new ValidationError('Task title is required');
+    }
+
+    const task = await AgentTask.create({
+      userId: req.user._id,
+      title: title.trim(),
+      type: type || 'general',
+      priority: priority || 'medium',
+      dueAt: dueAt ? new Date(dueAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      createdByAgent: false,
+      payload: {
+        description: description ? description.trim() : '',
+        jobId: jobId || undefined,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Career task created successfully',
+      data: { task },
     });
   } catch (error) {
     next(error);
