@@ -7,7 +7,8 @@ const morgan = require('morgan');
 const env = require('./config/env');
 const requestId = require('./middleware/requestId');
 const errorHandler = require('./middleware/errorHandler');
-const { apiLimiter } = require('./middleware/rateLimiter');
+const { apiLimiter, billingLimiter, aiLimiter } = require('./middleware/rateLimiter');
+const { sanitizeNoSql, sanitizeXss, hppGuard } = require('./middleware/sanitizer');
 const { NotFoundError } = require('./utils/errors');
 
 // Route imports
@@ -21,6 +22,7 @@ const agentRoutes = require('./routes/agent.routes');
 const adminRoutes = require('./routes/admin.routes');
 const notificationRoutes = require('./routes/notifications.routes');
 const billingRoutes = require('./routes/billing.routes');
+const usersRoutes = require('./routes/users.routes');
 
 const app = express();
 
@@ -45,6 +47,10 @@ app.use(
         frameSrc: ["'none'"],
       },
     },
+    frameguard: { action: 'deny' },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    dnsPrefetchControl: { allow: false },
+    permittedCrossDomainPolicies: { permittedPolicies: 'none' },
     crossOriginEmbedderPolicy: false,
   })
 );
@@ -72,6 +78,11 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser(env.COOKIE_SECRET));
 
+// 4.1 Input Sanitization & Anti-Pollution Suite (OWASP ASVS 5.0)
+app.use(sanitizeNoSql);
+app.use(sanitizeXss);
+app.use(hppGuard);
+
 // 5. Global Rate Limiter
 app.use('/api', apiLimiter);
 
@@ -92,10 +103,11 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/candidate', candidateRoutes);
-app.use('/api/agent', agentRoutes);
+app.use('/api/agent', aiLimiter, agentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/billing', billingRoutes);
+app.use('/api/billing', billingLimiter, billingRoutes);
+app.use('/api/users', usersRoutes);
 
 // 8. 404 Route Catch-all
 app.use('*', (req, res, next) => {
