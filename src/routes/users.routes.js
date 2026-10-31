@@ -235,10 +235,12 @@ router.delete('/me', authenticate, async (req, res, next) => {
     await User.deleteOne({ _id: userId });
 
     // 5. Invalidate auth cookie
+    const isProduction = env.NODE_ENV === 'production';
+    const isCrossDomain = env.CLIENT_URL && !env.CLIENT_URL.includes('localhost');
     res.clearCookie('token', {
       httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      secure: isProduction || isCrossDomain,
+      sameSite: isCrossDomain ? 'none' : (isProduction ? 'strict' : 'lax'),
       path: '/',
     });
 
@@ -303,3 +305,4 @@ router.put('/password', authenticate, async (req, res, next) => {
 });
 
 module.exports = router;
+

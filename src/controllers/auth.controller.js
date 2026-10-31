@@ -1,15 +1,22 @@
 const authService = require('../services/auth.service');
 const env = require('../config/env');
 
-// Helper to set secure HttpOnly cookie
-const setAuthCookie = (res, token) => {
+// Helper to determine secure HttpOnly cookie options across environments
+const getCookieOptions = () => {
   const isProduction = env.NODE_ENV === 'production';
-  res.cookie('token', token, {
+  const isCrossDomain = env.CLIENT_URL && !env.CLIENT_URL.includes('localhost');
+  return {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    secure: isProduction || isCrossDomain,
+    sameSite: isCrossDomain ? 'none' : (isProduction ? 'strict' : 'lax'),
     path: '/',
+  };
+};
+
+const setAuthCookie = (res, token) => {
+  res.cookie('token', token, {
+    ...getCookieOptions(),
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 };
 
@@ -60,12 +67,7 @@ const login = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
   try {
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: env.NODE_ENV === 'production' ? 'strict' : 'lax',
-      path: '/',
-    });
+    res.clearCookie('token', getCookieOptions());
 
     return res.status(200).json({
       success: true,
