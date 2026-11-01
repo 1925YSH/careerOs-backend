@@ -19,6 +19,11 @@ jobs:
   test-and-verify:
     name: Run Automated Security & RBAC Tests
     runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -26,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: 'npm'
 
       - name: Install Dependencies
@@ -37,6 +42,7 @@ jobs:
         env:
           NODE_ENV: test
           PORT: 5001
+          MONGODB_URI: mongodb://localhost:27017/careeros_test
           JWT_SECRET: test_jwt_secret_key_at_least_32_characters_long_for_security_spec
           COOKIE_SECRET: test_cookie_secret_key_32_characters_long
 
