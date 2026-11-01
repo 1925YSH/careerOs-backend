@@ -55,10 +55,25 @@ app.use(
   })
 );
 
-// 2. Strict CORS Configuration
+// 2. Strict & Resilient CORS Configuration
+const clientOrigin = (env.CLIENT_URL || '').replace(/\/+$/, '');
+
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile clients, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      const cleanOrigin = origin.replace(/\/+$/, '');
+      if (
+        cleanOrigin === clientOrigin ||
+        cleanOrigin === 'http://localhost:3000' ||
+        cleanOrigin.endsWith('.vercel.app')
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS policy blocked access from origin: ${origin}`));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
