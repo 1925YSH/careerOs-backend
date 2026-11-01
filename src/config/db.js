@@ -4,6 +4,13 @@ const env = require('./env');
 
 const connectDB = async () => {
   try {
+    if (env.MONGODB_URI.includes('<db_username>') || env.MONGODB_URI.includes('<db_password>')) {
+      logger.warn(
+        '⚠️ MONGODB_URI contains placeholder <db_username> or <db_password>. Please edit backend/.env with your actual MongoDB Atlas credentials.'
+      );
+      return;
+    }
+
     const conn = await mongoose.connect(env.MONGODB_URI, {
       autoIndex: env.NODE_ENV !== 'production', // Build indexes on startup only in dev/test
       serverSelectionTimeoutMS: 5000,

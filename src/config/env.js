@@ -17,6 +17,8 @@ const envSchema = z.object({
   AWS_S3_RESUME_BUCKET: z.string().default('careeros-resumes-dev'),
   GEMINI_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

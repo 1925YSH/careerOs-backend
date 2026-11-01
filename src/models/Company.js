@@ -55,6 +55,36 @@ const companySchema = new mongoose.Schema(
       type: String,
       enum: ['1-10', '11-50', '51-200', '201-500', '501-1000', '1000+'],
     },
+    subscription: {
+      plan: {
+        type: String,
+        enum: ['free', 'starter', 'growth', 'enterprise'],
+        default: 'free',
+      },
+      status: {
+        type: String,
+        enum: ['active', 'trialing', 'past_due', 'canceled'],
+        default: 'active',
+      },
+      billingCycle: {
+        type: String,
+        enum: ['monthly', 'annual'],
+        default: 'monthly',
+      },
+      jobPostingQuota: {
+        type: Number,
+        default: 2, // Free accounts can have up to 2 active postings
+      },
+      stripeCustomerId: {
+        type: String,
+      },
+      stripeSubscriptionId: {
+        type: String,
+      },
+      currentPeriodEnd: {
+        type: Date,
+      },
+    },
   },
   {
     timestamps: true,

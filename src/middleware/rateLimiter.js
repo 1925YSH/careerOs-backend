@@ -45,10 +45,26 @@ const ingestionLimiter = createLimiter({
   message: 'Ingestion trigger rate limit exceeded.',
 });
 
+// Data export limiter (privacy DPDP/GDPR: max 5 requests per 15 min to prevent extraction DoS)
+const exportLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Data export limit reached. Please wait before requesting another export archive.',
+});
+
+// Billing operations limiter (Stripe checkout/portal spam defense: 25 requests per 15 min)
+const billingLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 25,
+  message: 'Billing operations rate limit reached. Please try again shortly.',
+});
+
 module.exports = {
   apiLimiter,
   authLimiter,
   aiLimiter,
   ingestionLimiter,
+  exportLimiter,
+  billingLimiter,
 };
 
